@@ -14,3 +14,6 @@ All commands return 0 if cell module is not connected.
 * `<?>`: Check for commands. Return 0 if no command or other error, 1 if command is start, 2 if command is stop.
 * `<arbitrary text>` Send data to be logged on server. Typically `[#] x,y,z` where `#` is a line number, and the rest is csv data.
   
+## Installing
+
+Uses platformio for compile and upload. Main code is in `src/main.cpp`.
