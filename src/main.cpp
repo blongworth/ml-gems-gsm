@@ -1,5 +1,3 @@
-
-
 /**************************************************************
   Provides network communication for serial data transfer 
   from GEMS teensy. Mimics previous ESP setup
@@ -22,11 +20,25 @@
 
 #include <Arduino.h>
 #define TINY_GSM_MODEM_SIM7600
+//
+// Define the serial console for debug prints, if needed
+#define TINY_GSM_DEBUG SerialUSB
+
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
+#include <time.h>
 
 // Credentials and sites
 #include <setup.h>
+
+// Debug console (to the Serial Monitor, default speed 115200)
+#define SerialMon SerialUSB
+
+// GSM Serial
+#define SerialAT Serial1
+
+// See all AT commands, if wanted
+// #define DUMP_AT_COMMANDS
 
 // Increase RX buffer if needed
 //#define TINY_GSM_RX_BUFFER 512
@@ -36,20 +48,17 @@
 #define LTE_PWRKEY_PIN 5
 #define LTE_FLIGHT_PIN 7
 
-// Debug console (to the Serial Monitor, default speed 115200)
-#define SerialMon SerialUSB
-
-// GSM Serial
-#define SerialAT Serial1
-
-// Define NTP Client to get time
-// NTP won't work because we need UDP (not provided by tinyGSM)
-
 // Server details
 // const int  port = 443; // port 443 is default for HTTPS
 const int  port = 80; // port 80 is default for HTTP
 
-TinyGsm modem(SerialAT);
+#ifdef DUMP_AT_COMMANDS
+#include <StreamDebugger.h>
+StreamDebugger debugger(SerialAT, SerialMon);
+TinyGsm        modem(debugger);
+#else
+TinyGsm        modem(SerialAT);
+#endif
 
 // TinyGsmClientSecure client(modem); // no ssl (yet) for SIM7600
 TinyGsmClient client(modem);
@@ -68,53 +77,59 @@ void handleSerial();
 void setup() {
   // Set console baud rate
   SerialMon.begin(115200);
-  delay(10);
 
   // Set GSM module baud rate
   SerialAT.begin(115200);
-  delay(3000);
 
-  SerialMon.println("Powering on modem...");
+  DBG("Powering on modem...");
 
   pinMode(LTE_RESET_PIN, OUTPUT);
-  digitalWrite(LTE_RESET_PIN, LOW);
   pinMode(LTE_PWRKEY_PIN, OUTPUT);
+  pinMode(LTE_FLIGHT_PIN, OUTPUT);
+
   digitalWrite(LTE_RESET_PIN, LOW);
+  digitalWrite(LTE_FLIGHT_PIN, LOW);//Normal Mode
   delay(100);
   digitalWrite(LTE_PWRKEY_PIN, HIGH);
-  delay(2000);
+  delay(500);
   digitalWrite(LTE_PWRKEY_PIN, LOW);
   
-  pinMode(LTE_FLIGHT_PIN, OUTPUT);
-  digitalWrite(LTE_FLIGHT_PIN, LOW);//Normal Mode
   
   delay(5000);
 
   // Restart takes quite some time
   // To skip it, call init() instead of restart()
-  SerialMon.println("Initializing modem...");
-  modem.restart();
+  DBG("Initializing modem...");
+  if (!modem.init())
+  {
+    DBG("Failed initialization, restarting modem.");
+    modem.restart();
+  }
 
   String modemInfo = modem.getModemInfo();
-  SerialMon.print("Modem: ");
-  SerialMon.println(modemInfo);
+  DBG("Modem: ");
+  DBG(modemInfo);
 
-  SerialMon.print("Waiting for network...");
+  DBG("Waiting for network...");
   if (!modem.waitForNetwork()) {
-    SerialMon.println(" fail");
+    DBG(" fail");
     while (true);
   }
-  SerialMon.println(" OK");
+  DBG(" OK");
 
-  SerialMon.print("Connecting to ");
-  SerialMon.print(APN);
+  DBG("Connecting to ");
+  DBG(APN);
   if (!modem.gprsConnect(APN, "", "")) {
-    SerialMon.println(" fail");
+    DBG(" fail");
     while (true);
   }
-  SerialMon.println(" OK");
+  DBG(" OK");
 
-  SerialMon.println("Ready for commands");
+  DBG("Enabling GPS/GNSS/GLONASS...");
+  modem.enableGPS();
+  delay(1000L);
+
+  DBG("Ready for commands");
 
 }
 
@@ -156,39 +171,24 @@ void rcvSerial() {
   }
 }
 
-void handleTimeRequest() {
-//   timeClient.begin();
-//   timeClient.update();
-//   if (timeClient.isTimeSet())
-//   {
-//     SerialMon.print("T");
-//     SerialMon.println(timeClient.getEpochTime());
-//   }
-//   else
-//   {
-    SerialMon.println("0");
-//   }
-//   timeClient.end();
-}
-
 void handleCommandCheck() {
   http.get(GET_PATH); // Make the request
   int statusCode = http.responseStatusCode();
   if (statusCode > 0) {
     String payload = http.responseBody();
-    // SerialMon.println(httpCode);
-    // SerialMon.println(payload);
+    DBG(statusCode);
+    DBG(payload);
     // TODO: change codes to make 0 error
     if (payload == "Start") {
-      SerialMon.write('1');
+      SerialMon.println('1');
     } else if (payload == "Stop") {
-      SerialMon.write('0');
+      SerialMon.println('0');
     } else {
-      SerialMon.write('2');
+      SerialMon.println('2');
     }
   } else {
-    // SerialMon.println("Error on HTTP request");
-    SerialMon.write('2');
+    DBG("Error on HTTP request");
+    SerialMon.println('2');
   }
 }
 
@@ -204,19 +204,95 @@ void handleDataPacket() {
   }
 }
 
+void handleGPSRequest()
+{
+  float gps_latitude = 0;
+  float gps_longitude = 0;
+  float gps_speed = 0;
+  float gps_altitude = 0;
+  int gps_vsat = 0;
+  int gps_usat = 0;
+  float gps_accuracy = 0;
+  int gps_year = 0;
+  int gps_month = 0;
+  int gps_day = 0;
+  int gps_hour = 0;
+  int gps_minute = 0;
+  int gps_second = 0;
+
+  DBG("Requesting current GPS/GNSS/GLONASS location");
+  if (modem.getGPS(&gps_latitude, &gps_longitude, &gps_speed, &gps_altitude,
+                   &gps_vsat, &gps_usat, &gps_accuracy, &gps_year, &gps_month,
+                   &gps_day, &gps_hour, &gps_minute, &gps_second))
+  {
+    DBG("Latitude:", String(gps_latitude, 8),
+        "\tLongitude:", String(gps_longitude, 8));
+    DBG("Speed:", gps_speed, "\tAltitude:", gps_altitude);
+    DBG("Visible Satellites:", gps_vsat, "\tUsed Satellites:", gps_usat);
+    DBG("Accuracy:", gps_accuracy);
+    DBG("Year:", gps_year, "\tMonth:", gps_month, "\tDay:", gps_day);
+    DBG("Hour:", gps_hour, "\tMinute:", gps_minute, "\tSecond:", gps_second);
+    char gpsData[50];
+    snprintf(gpsData, sizeof(gpsData), "%.6f,%.6f", gps_latitude, gps_longitude);
+    SerialMon.println(gpsData);
+  }
+  else
+  {
+    DBG("Couldn't get GPS/GNSS/GLONASS location.");
+    SerialMon.println('0');
+  }
+}
+
+void handleTimeRequest()
+{
+  DBG("Asking modem to sync with NTP");
+  modem.NTPServerSync("pool.ntp.org");
+  int ntp_year = 0;
+  int ntp_month = 0;
+  int ntp_day = 0;
+  int ntp_hour = 0;
+  int ntp_min = 0;
+  int ntp_sec = 0;
+  float ntp_timezone = 0;
+  DBG("Requesting current network time");
+  // use getNetworkUTCTime() for time in UTC
+  if (modem.getNetworkTime(&ntp_year, &ntp_month, &ntp_day, &ntp_hour,
+                           &ntp_min, &ntp_sec, &ntp_timezone))
+  {
+    DBG("Year:", ntp_year, "\tMonth:", ntp_month, "\tDay:", ntp_day);
+    DBG("Hour:", ntp_hour, "\tMinute:", ntp_min, "\tSecond:", ntp_sec);
+    DBG("Timezone:", ntp_timezone);
+    struct tm timeinfo = {};
+    timeinfo.tm_year = ntp_year - 1900;
+    timeinfo.tm_mon = ntp_month - 1;
+    timeinfo.tm_mday = ntp_day;
+    timeinfo.tm_hour = ntp_hour;
+    timeinfo.tm_min = ntp_min;
+    timeinfo.tm_sec = ntp_sec;
+    time_t timestamp = mktime(&timeinfo);
+    SerialMon.print("T");
+    SerialMon.println(timestamp);
+  }
+  else
+  {
+    DBG("Couldn't get network time.");
+    SerialMon.println('0');
+  }
+}
+
 void handleSerial() {
   // if no new command from client, return
   if (!newData) return;
   // if not connected, reply 0 in all cases
   if (!modem.isGprsConnected()) {
-    SerialMon.write('0');
+    SerialMon.println('0');
     newData = false;
     return;
   }
 
   switch (receivedChars[0]) {
     case '^': // connected? Yes, we tested above.
-      SerialMon.write('1');
+      SerialMon.println('1');
       break;
     case '$':
       handleTimeRequest();
@@ -225,6 +301,9 @@ void handleSerial() {
       handleCommandCheck();
       break;
     // add case for GPS position
+    case '*':
+      handleGPSRequest();
+      break;
     default:
       handleDataPacket();
       break;
@@ -234,31 +313,29 @@ void handleSerial() {
 }
 
 void connect_cellular(){
-  SerialMon.print(F("Waiting for network..."));
+  DBG(F("Waiting for network..."));
   if (!modem.waitForNetwork()) {
-    SerialMon.println(" fail");
+    DBG(" fail");
     delay(10000);
     return;
   }
-  SerialMon.println(" OK");
+  DBG(" OK");
 
-  SerialMon.print(F("Connecting to "));
-  SerialMon.print(APN);
+  DBG(F("Connecting to "));
+  DBG(APN);
   if (!modem.gprsConnect(APN, "", "")) {
-    SerialMon.println(" fail");
+    DBG(" fail");
     delay(10000);
     return;
   }
-  SerialMon.println(" OK");
+  DBG(" OK");
 }
 
 void disconnect_networks(){
-  SerialMon.println("Disconnecting");
+  DBG("Disconnecting");
   http.stop();
-  SerialMon.println(F("Server disconnected"));
+  DBG(F("Server disconnected"));
 
   modem.gprsDisconnect();
-  SerialMon.println(F("GPRS disconnected"));
+  DBG(F("GPRS disconnected"));
 }
-
-
