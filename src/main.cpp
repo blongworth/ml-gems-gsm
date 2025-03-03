@@ -182,13 +182,13 @@ void handleCommandCheck() {
     if (payload == "Start") {
       SerialMon.println('1');
     } else if (payload == "Stop") {
-      SerialMon.println('0');
-    } else {
       SerialMon.println('2');
+    } else {
+      SerialMon.println('0');
     }
   } else {
     DBG("Error on HTTP request");
-    SerialMon.println('2');
+    SerialMon.println('0');
   }
 }
 
