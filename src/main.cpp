@@ -1,6 +1,7 @@
 /**************************************************************
   Provides network communication for serial data transfer 
-  from GEMS teensy. Mimics previous ESP setup
+  from GEMS teensy. Uses Maduino Zero (SIM7600 GSM + Arduino Zero).
+  Mimics previous ESP8266 setup.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -15,7 +16,6 @@
   You should have received a copy of the GNU Lesser General Public
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
  **************************************************************/
 
 #include <Arduino.h>
@@ -31,11 +31,22 @@
 // Credentials and sites
 #include <setup.h>
 
+#include "wiring_private.h" // pinPeripheral() function
+
 // Debug console (to the Serial Monitor, default speed 115200)
 #define SerialMon SerialUSB
 
 // GSM Serial
 #define SerialAT Serial1
+
+// Teensy Serial
+Uart Serial2 (&sercom1, 11, 10, SERCOM_RX_PAD_0, UART_TX_PAD_2);
+void SERCOM1_Handler()
+{
+  Serial2.IrqHandler();
+}
+
+#define SerialTeensy Serial2
 
 // See all AT commands, if wanted
 // #define DUMP_AT_COMMANDS
@@ -81,6 +92,13 @@ void setup() {
   // Set GSM module baud rate
   SerialAT.begin(115200);
 
+  // Assign pins 10 & 11 SERCOM functionality
+  pinPeripheral(10, PIO_SERCOM);
+  pinPeripheral(11, PIO_SERCOM);
+
+  // Start teensy serial
+  SerialTeensy.begin(115200);
+  
   DBG("Powering on modem...");
 
   pinMode(LTE_RESET_PIN, OUTPUT);
@@ -144,8 +162,8 @@ void rcvSerial() {
   const char START_MARKER = '<';
   const char END_MARKER = '>';
 
-  while (SerialMon.available() > 0 && !newData) {
-    char rc = SerialMon.read();
+  while (SerialTeensy.available() > 0 && !newData) {
+    char rc = SerialTeensy.read();
 
     // Check for start marker if not already collecting
     if (!recvInProgress) {
@@ -180,15 +198,15 @@ void handleCommandCheck() {
     DBG(payload);
     // TODO: change codes to make 0 error
     if (payload == "Start") {
-      SerialMon.println('1');
+      SerialTeensy.println('1');
     } else if (payload == "Stop") {
-      SerialMon.println('2');
+      SerialTeensy.println('2');
     } else {
-      SerialMon.println('0');
+      SerialTeensy.println('0');
     }
   } else {
     DBG("Error on HTTP request");
-    SerialMon.println('0');
+    SerialTeensy.println('0');
   }
 }
 
@@ -198,9 +216,9 @@ void handleDataPacket() {
   int statusCode = http.responseStatusCode();
   // http.getString();
   if (statusCode == 200) {
-    SerialMon.write('a');
+    SerialTeensy.write('a');
   } else {
-    SerialMon.write('0');
+    SerialTeensy.write('0');
   }
 }
 
@@ -234,12 +252,12 @@ void handleGPSRequest()
     DBG("Hour:", gps_hour, "\tMinute:", gps_minute, "\tSecond:", gps_second);
     char gpsData[50];
     snprintf(gpsData, sizeof(gpsData), "%.6f,%.6f", gps_latitude, gps_longitude);
-    SerialMon.println(gpsData);
+    SerialTeensy.println(gpsData);
   }
   else
   {
     DBG("Couldn't get GPS/GNSS/GLONASS location.");
-    SerialMon.println('0');
+    SerialTeensy.println('0');
   }
 }
 
@@ -270,13 +288,13 @@ void handleTimeRequest()
     timeinfo.tm_min = ntp_min;
     timeinfo.tm_sec = ntp_sec;
     time_t timestamp = mktime(&timeinfo);
-    SerialMon.print("T");
-    SerialMon.println(timestamp);
+    SerialTeensy.print("T");
+    SerialTeensy.println(timestamp);
   }
   else
   {
     DBG("Couldn't get network time.");
-    SerialMon.println('0');
+    SerialTeensy.println('0');
   }
 }
 
@@ -284,15 +302,16 @@ void handleSerial() {
   // if no new command from client, return
   if (!newData) return;
   // if not connected, reply 0 in all cases
+  DBG("Received: ", receivedChars);
   if (!modem.isGprsConnected()) {
-    SerialMon.println('0');
+    SerialTeensy.println('0');
     newData = false;
     return;
   }
 
   switch (receivedChars[0]) {
     case '^': // connected? Yes, we tested above.
-      SerialMon.println('1');
+      SerialTeensy.println('1');
       break;
     case '$':
       handleTimeRequest();
