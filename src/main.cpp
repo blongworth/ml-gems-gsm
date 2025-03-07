@@ -19,6 +19,7 @@
  **************************************************************/
 
 #include <Arduino.h>
+#include "wiring_private.h" // pinPeripheral() function
 #define TINY_GSM_MODEM_SIM7600
 //
 // Define the serial console for debug prints, if needed
@@ -31,7 +32,6 @@
 // Credentials and sites
 #include <setup.h>
 
-#include "wiring_private.h" // pinPeripheral() function
 
 // Debug console (to the Serial Monitor, default speed 115200)
 #define SerialMon SerialUSB
@@ -40,13 +40,13 @@
 #define SerialAT Serial1
 
 // Teensy Serial
-Uart Serial2 (&sercom1, 11, 10, SERCOM_RX_PAD_0, UART_TX_PAD_2);
+Uart SerialTeensy (&sercom1, 11, 10, SERCOM_RX_PAD_0, UART_TX_PAD_2);
 void SERCOM1_Handler()
 {
-  Serial2.IrqHandler();
+  SerialTeensy.IrqHandler();
 }
 
-#define SerialTeensy Serial2
+// #define SerialTeensy Serial2
 
 // See all AT commands, if wanted
 // #define DUMP_AT_COMMANDS
@@ -92,13 +92,13 @@ void setup() {
   // Set GSM module baud rate
   SerialAT.begin(115200);
 
+  // Start teensy serial
+  SerialTeensy.begin(115200);
+  
   // Assign pins 10 & 11 SERCOM functionality
   pinPeripheral(10, PIO_SERCOM);
   pinPeripheral(11, PIO_SERCOM);
 
-  // Start teensy serial
-  SerialTeensy.begin(115200);
-  
   DBG("Powering on modem...");
 
   pinMode(LTE_RESET_PIN, OUTPUT);
@@ -151,9 +151,21 @@ void setup() {
 
 }
 
+// uint8_t i=0;
+// void loop() {
+//   SerialUSB.print(i);
+//   SerialTeensy.write(i++);
+//   if (SerialTeensy.available()) {
+//     SerialUSB.print(" -> 0x"); SerialUSB.print(SerialTeensy.read(), HEX);
+//   }
+//   SerialUSB.println();
+//   
+//   delay(10);
+// }
+
 void loop(){
-    rcvSerial();
-    handleSerial();
+  rcvSerial();
+  handleSerial();
 }
 
 void rcvSerial() {
