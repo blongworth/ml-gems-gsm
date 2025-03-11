@@ -204,13 +204,12 @@ void handleCommandCheck() {
     String payload = http.responseBody();
     DBG(statusCode);
     DBG(payload);
-    // TODO: change codes to make 0 error
     if (payload == "Start") {
-      sendSerial(SerialTeensy, "1");
+      sendSerial(SerialTeensy, "C1");
     } else if (payload == "Stop") {
-      sendSerial(SerialTeensy, "2");
+      sendSerial(SerialTeensy, "C2");
     } else {
-      sendSerial(SerialTeensy, "0");
+      sendSerial(SerialTeensy, "C0");
     }
   } else {
     DBG("Error on HTTP request");
@@ -224,9 +223,9 @@ void handleDataPacket() {
   int statusCode = http.responseStatusCode();
   // http.getString();
   if (statusCode == 200) {
-    sendSerial(SerialTeensy, "a");
+    sendSerial(SerialTeensy, "Da");
   } else {
-    sendSerial(SerialTeensy, "0");
+    sendSerial(SerialTeensy, "D0");
   }
 }
 
@@ -259,13 +258,13 @@ void handleGPSRequest()
     DBG("Year:", gps_year, "\tMonth:", gps_month, "\tDay:", gps_day);
     DBG("Hour:", gps_hour, "\tMinute:", gps_minute, "\tSecond:", gps_second);
     char gpsData[50];
-    snprintf(gpsData, sizeof(gpsData), "%.6f,%.6f", gps_latitude, gps_longitude);
+    snprintf(gpsData, sizeof(gpsData), "G%.6f,%.6f", gps_latitude, gps_longitude);
     sendSerial(SerialTeensy, gpsData);
   }
   else
   {
     DBG("Couldn't get GPS/GNSS/GLONASS location.");
-    sendSerial(SerialTeensy, "0");
+    sendSerial(SerialTeensy, "G0");
   }
 }
 
@@ -328,7 +327,6 @@ void handleSerial() {
     case '?':
       handleCommandCheck();
       break;
-    // add case for GPS position
     case '*':
       handleGPSRequest();
       break;
