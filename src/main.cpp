@@ -83,6 +83,7 @@ char receivedChars[RCV_CHARS];
 void connect_cellular();
 void disconnect_networks();
 void rcvSerial();
+void sendSerial();
 void handleSerial();
 
 void setup() {
@@ -151,18 +152,6 @@ void setup() {
 
 }
 
-// uint8_t i=0;
-// void loop() {
-//   SerialUSB.print(i);
-//   SerialTeensy.write(i++);
-//   if (SerialTeensy.available()) {
-//     SerialUSB.print(" -> 0x"); SerialUSB.print(SerialTeensy.read(), HEX);
-//   }
-//   SerialUSB.println();
-//   
-//   delay(10);
-// }
-
 void loop(){
   rcvSerial();
   handleSerial();
@@ -201,6 +190,13 @@ void rcvSerial() {
   }
 }
 
+void sendSerial(Stream& serial, const char* data) {
+  serial.write('<');
+  serial.print(data);
+  serial.write('>');
+  serial.println();  // Add line ending
+}
+
 void handleCommandCheck() {
   http.get(GET_PATH); // Make the request
   int statusCode = http.responseStatusCode();
@@ -210,15 +206,15 @@ void handleCommandCheck() {
     DBG(payload);
     // TODO: change codes to make 0 error
     if (payload == "Start") {
-      SerialTeensy.println('1');
+      sendSerial(SerialTeensy, "1");
     } else if (payload == "Stop") {
-      SerialTeensy.println('2');
+      sendSerial(SerialTeensy, "2");
     } else {
-      SerialTeensy.println('0');
+      sendSerial(SerialTeensy, "0");
     }
   } else {
     DBG("Error on HTTP request");
-    SerialTeensy.println('0');
+    sendSerial(SerialTeensy, "0");
   }
 }
 
@@ -228,9 +224,9 @@ void handleDataPacket() {
   int statusCode = http.responseStatusCode();
   // http.getString();
   if (statusCode == 200) {
-    SerialTeensy.write('a');
+    sendSerial(SerialTeensy, "a");
   } else {
-    SerialTeensy.write('0');
+    sendSerial(SerialTeensy, "0");
   }
 }
 
@@ -264,12 +260,12 @@ void handleGPSRequest()
     DBG("Hour:", gps_hour, "\tMinute:", gps_minute, "\tSecond:", gps_second);
     char gpsData[50];
     snprintf(gpsData, sizeof(gpsData), "%.6f,%.6f", gps_latitude, gps_longitude);
-    SerialTeensy.println(gpsData);
+    sendSerial(SerialTeensy, gpsData);
   }
   else
   {
     DBG("Couldn't get GPS/GNSS/GLONASS location.");
-    SerialTeensy.println('0');
+    sendSerial(SerialTeensy, "0");
   }
 }
 
@@ -300,13 +296,14 @@ void handleTimeRequest()
     timeinfo.tm_min = ntp_min;
     timeinfo.tm_sec = ntp_sec;
     time_t timestamp = mktime(&timeinfo);
-    SerialTeensy.print("T");
-    SerialTeensy.println(timestamp);
+    SerialTeensy.print("<T");
+    SerialTeensy.print(timestamp);
+    SerialTeensy.println(">");
   }
   else
   {
     DBG("Couldn't get network time.");
-    SerialTeensy.println('0');
+    sendSerial(SerialTeensy, "0");
   }
 }
 
@@ -316,14 +313,14 @@ void handleSerial() {
   // if not connected, reply 0 in all cases
   DBG("Received: ", receivedChars);
   if (!modem.isGprsConnected()) {
-    SerialTeensy.println('0');
+    sendSerial(SerialTeensy, "0");
     newData = false;
     return;
   }
 
   switch (receivedChars[0]) {
     case '^': // connected? Yes, we tested above.
-      SerialTeensy.println('1');
+    sendSerial(SerialTeensy, "1");
       break;
     case '$':
       handleTimeRequest();
