@@ -16,11 +16,16 @@ Uses platformio for compile and upload. Main code is in `src/main.cpp`.
 
 ## Interface
 
-Commands begin with `<` and are terminated by `>`. 
-All commands return 0 if cell module is not connected.
+Commands and replies begin with `<` and are terminated by `>`. 
+All commands return `0` if cell module is not connected.
 
-* `<^>`: check connection. return 1 if connected, 0 if not.
-* `<?>`: Check for commands. Return 0 if no command or other error, 1 if command is start, 2 if command is stop.
-* `<$>`: Get network time. Returns 0 if error, `T` followed a 32-bit unix timestamp.
-* `<*>`: Get GPS data. Returns 0 if error, comma separated decimal latitude and longidude if successful.
-* `<arbitrary text>` Send data to be logged on server. Typically `[#] x,y,z` where `#` is a line number, and the rest is csv data.
+* `<^>`: check connection. return `1` if connected, `0` if not.
+* `<?>`: Check for commands. Return `0` if no reply, `C0` if no command
+or other error, `C1` if command is start, `C2` if command is stop.
+* `<$>`: Get network time. Returns `0` if error, or `T` followed 
+by a 32-bit unix timestamp.
+* `<*>`: Get GPS data. Returns `0` if error, `G` followed by comma separated
+decimal latitude and longidude if successful.
+* `<arbitrary text>` Send data to be logged on server. Typically `[#] x,y,z` 
+where `#` is a line number, and the rest is csv data. 
+Returns `D0` if error, `Da` if successful.
