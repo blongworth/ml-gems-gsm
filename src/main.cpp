@@ -46,8 +46,6 @@ void SERCOM1_Handler()
   SerialTeensy.IrqHandler();
 }
 
-// #define SerialTeensy Serial2
-
 // See all AT commands, if wanted
 // #define DUMP_AT_COMMANDS
 
@@ -149,7 +147,6 @@ void setup() {
   delay(1000L);
 
   DBG("Ready for commands");
-
 }
 
 void loop(){
@@ -194,7 +191,7 @@ void sendSerial(Stream& serial, const char* data) {
   serial.write('<');
   serial.print(data);
   serial.write('>');
-  serial.println();  // Add line ending
+  serial.println();
 }
 
 void handleCommandCheck() {
@@ -307,7 +304,6 @@ void handleTimeRequest()
 }
 
 void handleSerial() {
-  // if no new command from client, return
   if (!newData) return;
   // if not connected, reply 0 in all cases
   DBG("Received: ", receivedChars);
