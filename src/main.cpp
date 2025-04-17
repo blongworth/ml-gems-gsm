@@ -197,10 +197,10 @@ void sendSerial(Stream& serial, const char* data) {
 void handleCommandCheck() {
   http.get(GET_PATH); // Make the request
   int statusCode = http.responseStatusCode();
-  if (statusCode > 0) {
-    String payload = http.responseBody();
-    DBG(statusCode);
-    DBG(payload);
+  String payload = http.responseBody();
+  DBG(statusCode);
+  DBG(payload);
+  if (statusCode == 200) {
     if (payload == "Start") {
       sendSerial(SerialTeensy, "C1");
     } else if (payload == "Stop") {
@@ -210,7 +210,8 @@ void handleCommandCheck() {
     }
   } else {
     DBG("Error on HTTP request");
-    sendSerial(SerialTeensy, "0");
+    sendSerial(SerialTeensy, "C0");
+    http.stop();
   }
 }
 
@@ -218,11 +219,17 @@ void handleDataPacket() {
   const char contentType[] = "text/plain";
   http.post(POST_PATH, contentType, receivedChars);
   int statusCode = http.responseStatusCode();
+  String payload = http.responseBody();
+  DBG(statusCode);
+  DBG(payload);
   // http.getString();
   if (statusCode == 200) {
     sendSerial(SerialTeensy, "Da");
+    DBG("Data sent successfully");
   } else {
+    DBG("Error on HTTP request");
     sendSerial(SerialTeensy, "D0");
+    http.stop();
   }
 }
 
@@ -308,6 +315,7 @@ void handleSerial() {
   // if not connected, reply 0 in all cases
   DBG("Received: ", receivedChars);
   if (!modem.isGprsConnected()) {
+    DBG("Not connected to GPRS");
     sendSerial(SerialTeensy, "0");
     newData = false;
     return;
@@ -316,6 +324,7 @@ void handleSerial() {
   switch (receivedChars[0]) {
     case '^': // connected? Yes, we tested above.
     sendSerial(SerialTeensy, "1");
+    DBG("Connected to GPRS");
       break;
     case '$':
       handleTimeRequest();
