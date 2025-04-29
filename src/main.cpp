@@ -306,7 +306,7 @@ void handleTimeRequest()
   else
   {
     DBG("Couldn't get network time.");
-    sendSerial(SerialTeensy, "0");
+    sendSerial(SerialTeensy, "T0");
   }
 }
 
