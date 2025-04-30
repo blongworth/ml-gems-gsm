@@ -318,13 +318,14 @@ void handleSerial() {
     DBG("Not connected to GPRS");
     sendSerial(SerialTeensy, "0");
     newData = false;
+    delay(100);
     return;
   }
 
   switch (receivedChars[0]) {
     case '^': // connected? Yes, we tested above.
-    sendSerial(SerialTeensy, "1");
-    DBG("Connected to GPRS");
+      sendSerial(SerialTeensy, "1");
+      DBG("Connected to GPRS");
       break;
     case '$':
       handleTimeRequest();
@@ -339,8 +340,8 @@ void handleSerial() {
       handleDataPacket();
       break;
   }
-
   newData = false;
+  delay(100);
 }
 
 void connect_cellular(){
