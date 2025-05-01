@@ -195,7 +195,9 @@ void sendSerial(Stream& serial, const char* data) {
 }
 
 void handleCommandCheck() {
-  http.get(GET_PATH); // Make the request
+  int err = 0;
+  err = http.get(GET_PATH); // Make the request
+  DBG("HTTP GET err: ", err);
   int statusCode = http.responseStatusCode();
   String payload = http.responseBody();
   DBG(statusCode);
@@ -217,12 +219,13 @@ void handleCommandCheck() {
 
 void handleDataPacket() {
   const char contentType[] = "text/plain";
-  http.post(POST_PATH, contentType, receivedChars);
+  int err = 0;
+  err = http.post(POST_PATH, contentType, receivedChars);
+  DBG("HTTP POST err: ", err);
   int statusCode = http.responseStatusCode();
   String payload = http.responseBody();
-  DBG(statusCode);
-  DBG(payload);
-  // http.getString();
+  DBG("HTTP POST status:", statusCode);
+  DBG("HTTP POST response:", payload);
   if (statusCode == 200) {
     sendSerial(SerialTeensy, "Da");
     DBG("Data sent successfully");
@@ -318,7 +321,6 @@ void handleSerial() {
     DBG("Not connected to GPRS");
     sendSerial(SerialTeensy, "0");
     newData = false;
-    delay(100);
     return;
   }
 
@@ -341,7 +343,6 @@ void handleSerial() {
       break;
   }
   newData = false;
-  delay(100);
 }
 
 void connect_cellular(){
