@@ -25,6 +25,13 @@
 // Define the serial console for debug prints, if needed
 #define TINY_GSM_DEBUG SerialUSB
 
+// See all AT commands, if wanted
+//#define DUMP_AT_COMMANDS
+
+// Increase RX buffer if needed
+#define TINY_GSM_RX_BUFFER 512
+
+
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
 #include <time.h>
@@ -45,12 +52,6 @@ void SERCOM1_Handler()
 {
   SerialTeensy.IrqHandler();
 }
-
-// See all AT commands, if wanted
-// #define DUMP_AT_COMMANDS
-
-// Increase RX buffer if needed
-//#define TINY_GSM_RX_BUFFER 512
 
 // Pins for LTE
 #define LTE_RESET_PIN 6
@@ -196,12 +197,24 @@ void sendSerial(Stream& serial, const char* data) {
 
 void handleCommandCheck() {
   int err = 0;
+  http.connectionKeepAlive(); // Keep connection alive
   err = http.get(GET_PATH); // Make the request
   DBG("HTTP GET err: ", err);
+  if (err) {
+    DBG("HTTP GET failed");
+    http.endRequest(); // End the request
+    http.stop();
+    delay(500); // wait a bit before retrying
+    sendSerial(SerialTeensy, "C0");
+    return;
+  }
   int statusCode = http.responseStatusCode();
   String payload = http.responseBody();
   DBG(statusCode);
   DBG(payload);
+  http.endRequest(); // End the request
+  //http.stop();
+  //delay(200); // wait a bit before sending reply
   if (statusCode == 200) {
     if (payload == "Start") {
       sendSerial(SerialTeensy, "C1");
@@ -213,26 +226,36 @@ void handleCommandCheck() {
   } else {
     DBG("Error on HTTP request");
     sendSerial(SerialTeensy, "C0");
-    http.stop();
   }
 }
 
 void handleDataPacket() {
   const char contentType[] = "text/plain";
   int err = 0;
+  http.connectionKeepAlive(); // Keep connection alive
   err = http.post(POST_PATH, contentType, receivedChars);
   DBG("HTTP POST err: ", err);
+  if (err) {
+    DBG("HTTP POST failed");
+    http.endRequest(); // End the request
+    http.stop();
+    delay(500); // wait a bit before retrying
+    sendSerial(SerialTeensy, "D0");
+    return;
+  }
   int statusCode = http.responseStatusCode();
   String payload = http.responseBody();
+  http.endRequest(); // End the request
+  //http.stop();
   DBG("HTTP POST status:", statusCode);
   DBG("HTTP POST response:", payload);
+  //delay(200); // wait a bit before sending confirmation
   if (statusCode == 200) {
-    sendSerial(SerialTeensy, "Da");
     DBG("Data sent successfully");
+    sendSerial(SerialTeensy, "Da");
   } else {
     DBG("Error on HTTP request");
     sendSerial(SerialTeensy, "D0");
-    http.stop();
   }
 }
 
