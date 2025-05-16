@@ -76,10 +76,10 @@ HttpClient http(client, SERVER, port);
 
 // serial client stuff
 bool newData = false;
-const int RCV_CHARS = 1000;
+const int RCV_CHARS = 2048;
 char receivedChars[RCV_CHARS];
 
-void connect_cellular();
+bool connect_cellular();
 void disconnect_networks();
 void rcvSerial();
 void sendSerial();
@@ -99,55 +99,10 @@ void setup() {
   pinPeripheral(10, PIO_SERCOM);
   pinPeripheral(11, PIO_SERCOM);
 
-  DBG("Powering on modem...");
-
   pinMode(LTE_RESET_PIN, OUTPUT);
   pinMode(LTE_PWRKEY_PIN, OUTPUT);
   pinMode(LTE_FLIGHT_PIN, OUTPUT);
 
-  digitalWrite(LTE_RESET_PIN, LOW);
-  digitalWrite(LTE_FLIGHT_PIN, LOW);//Normal Mode
-  delay(100);
-  digitalWrite(LTE_PWRKEY_PIN, HIGH);
-  delay(500);
-  digitalWrite(LTE_PWRKEY_PIN, LOW);
-  
-  
-  delay(5000);
-
-  // Restart takes quite some time
-  // To skip it, call init() instead of restart()
-  DBG("Initializing modem...");
-  if (!modem.init())
-  {
-    DBG("Failed initialization, restarting modem.");
-    modem.restart();
-  }
-
-  String modemInfo = modem.getModemInfo();
-  DBG("Modem: ");
-  DBG(modemInfo);
-
-  DBG("Waiting for network...");
-  if (!modem.waitForNetwork()) {
-    DBG(" fail");
-    while (true);
-  }
-  DBG(" OK");
-
-  DBG("Connecting to ");
-  DBG(APN);
-  if (!modem.gprsConnect(APN, "", "")) {
-    DBG(" fail");
-    while (true);
-  }
-  DBG(" OK");
-
-  DBG("Enabling GPS/GNSS/GLONASS...");
-  modem.enableGPS();
-  delay(1000L);
-
-  DBG("Ready for commands");
 }
 
 void loop(){
@@ -342,6 +297,7 @@ void handleSerial() {
   DBG("Received: ", receivedChars);
   if (!modem.isGprsConnected()) {
     DBG("Not connected to GPRS");
+    connect_cellular();
     sendSerial(SerialTeensy, "0");
     newData = false;
     return;
@@ -351,6 +307,11 @@ void handleSerial() {
     case '^': // connected? Yes, we tested above.
       sendSerial(SerialTeensy, "1");
       DBG("Connected to GPRS");
+      break;
+    case '0':
+      //sendSerial(SerialTeensy, "0");
+      DBG("Disconnected from GPRS");
+      disconnect_networks();
       break;
     case '$':
       handleTimeRequest();
@@ -368,23 +329,48 @@ void handleSerial() {
   newData = false;
 }
 
-void connect_cellular(){
-  DBG(F("Waiting for network..."));
+bool connect_cellular(){
+  DBG("Powering on modem...");
+  digitalWrite(LTE_RESET_PIN, LOW);
+  digitalWrite(LTE_FLIGHT_PIN, LOW);//Normal Mode
+  delay(100);
+  digitalWrite(LTE_PWRKEY_PIN, HIGH);
+  delay(500);
+  digitalWrite(LTE_PWRKEY_PIN, LOW);
+  
+  delay(5000);
+
+  // Restart takes quite some time
+  // To skip it, call init() instead of restart()
+  DBG("Initializing modem...");
+  if (!modem.init())
+  {
+    DBG("Failed initialization, restarting modem.");
+    modem.restart();
+  }
+
+  String modemInfo = modem.getModemInfo();
+  DBG("Modem: ");
+  DBG(modemInfo);
+
+  DBG("Waiting for network...");
   if (!modem.waitForNetwork()) {
     DBG(" fail");
-    delay(10000);
-    return;
   }
   DBG(" OK");
 
-  DBG(F("Connecting to "));
+  DBG("Connecting to ");
   DBG(APN);
   if (!modem.gprsConnect(APN, "", "")) {
     DBG(" fail");
-    delay(10000);
-    return;
   }
   DBG(" OK");
+
+  DBG("Enabling GPS/GNSS/GLONASS...");
+  modem.enableGPS();
+  delay(1000L);
+  DBG("Ready for commands");
+  return modem.isGprsConnected();
 }
 
 void disconnect_networks(){
@@ -394,4 +380,10 @@ void disconnect_networks(){
 
   modem.gprsDisconnect();
   DBG(F("GPRS disconnected"));
+
+  DBG("Powering off modem...");
+  //modem.poweroff();
+  digitalWrite(LTE_PWRKEY_PIN, HIGH);
+  delay(500);
+  digitalWrite(LTE_PWRKEY_PIN, LOW);
 }
