@@ -382,8 +382,14 @@ void disconnect_networks(){
   DBG(F("GPRS disconnected"));
 
   DBG("Powering off modem...");
-  //modem.poweroff();
-  digitalWrite(LTE_PWRKEY_PIN, HIGH);
-  delay(500);
-  digitalWrite(LTE_PWRKEY_PIN, LOW);
+  modem.poweroff();
+  //digitalWrite(LTE_PWRKEY_PIN, HIGH);
+  //delay(500);
+  //digitalWrite(LTE_PWRKEY_PIN, LOW);
+  DBG("Modem powered off");
+  sendSerial(SerialTeensy, "0");
+  delay(10000);
+  while (SerialTeensy.available()) {
+    SerialTeensy.read();
+  }
 }
