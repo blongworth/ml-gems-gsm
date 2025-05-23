@@ -256,7 +256,7 @@ void handleGPSRequest()
 void handleTimeRequest()
 {
   DBG("Asking modem to sync with NTP");
-  modem.NTPServerSync("pool.ntp.org");
+  modem.NTPServerSync("pool.ntp.org", UTC_OFFSET);
   int ntp_year = 0;
   int ntp_month = 0;
   int ntp_day = 0;
@@ -266,6 +266,7 @@ void handleTimeRequest()
   float ntp_timezone = 0;
   DBG("Requesting current network time");
   // use getNetworkUTCTime() for time in UTC
+  // getNetworkUTCTime() not implemented on SIM7600
   if (modem.getNetworkTime(&ntp_year, &ntp_month, &ntp_day, &ntp_hour,
                            &ntp_min, &ntp_sec, &ntp_timezone))
   {
