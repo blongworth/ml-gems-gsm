@@ -102,8 +102,8 @@ void setup() {
   pinMode(LTE_RESET_PIN, OUTPUT);
   pinMode(LTE_PWRKEY_PIN, OUTPUT);
   pinMode(LTE_FLIGHT_PIN, OUTPUT);
-  
-  DBG("Starting modem...");
+
+  DBG("Maduino GSM Ready!");
 }
 
 void loop(){
@@ -257,7 +257,8 @@ void handleGPSRequest()
 void handleTimeRequest()
 {
   DBG("Asking modem to sync with NTP");
-  modem.NTPServerSync("pool.ntp.org");
+  modem.NTPServerSync("pool.ntp.org", UTC_OFFSET);
+  //modem.NTPServerSync("time.apple.com", UTC_OFFSET);
   int ntp_year = 0;
   int ntp_month = 0;
   int ntp_day = 0;
@@ -267,8 +268,11 @@ void handleTimeRequest()
   float ntp_timezone = 0;
   DBG("Requesting current network time");
   // use getNetworkUTCTime() for time in UTC
+  // getNetworkUTCTime() not implemented on SIM7600
+  // check for correct timezone here
   if (modem.getNetworkTime(&ntp_year, &ntp_month, &ntp_day, &ntp_hour,
-                           &ntp_min, &ntp_sec, &ntp_timezone))
+                           &ntp_min, &ntp_sec, &ntp_timezone) &&
+                          ntp_timezone == UTC_OFFSET)
   {
     DBG("Year:", ntp_year, "\tMonth:", ntp_month, "\tDay:", ntp_day);
     DBG("Hour:", ntp_hour, "\tMinute:", ntp_min, "\tSecond:", ntp_sec);
