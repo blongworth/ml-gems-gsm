@@ -102,7 +102,8 @@ void setup() {
   pinMode(LTE_RESET_PIN, OUTPUT);
   pinMode(LTE_PWRKEY_PIN, OUTPUT);
   pinMode(LTE_FLIGHT_PIN, OUTPUT);
-
+  
+  DBG("Starting modem...");
 }
 
 void loop(){
