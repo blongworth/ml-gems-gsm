@@ -343,7 +343,7 @@ bool connect_cellular(){
   delay(500);
   digitalWrite(LTE_PWRKEY_PIN, LOW);
   
-  delay(5000);
+  delay(16000); // wait for modem to boot up
 
   // Restart takes quite some time
   // To skip it, call init() instead of restart()
@@ -385,7 +385,7 @@ void disconnect_networks(){
 
   modem.gprsDisconnect();
   DBG(F("GPRS disconnected"));
-
+  
   DBG("Powering off modem...");
   modem.poweroff();
   //digitalWrite(LTE_PWRKEY_PIN, HIGH);
