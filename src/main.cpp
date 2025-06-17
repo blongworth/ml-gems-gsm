@@ -249,10 +249,6 @@ void handleGPSRequest()
     char gpsData[50];
     snprintf(gpsData, sizeof(gpsData), "G%.6f,%.6f", gps_latitude, gps_longitude);
     sendSerial(SerialTeensy, gpsData);
-    char gpsPacket[128];
-    snprintf(gpsPacket, sizeof(gpsPacket), "[500]G:%04d-%02d-%02dT%02d:%02d:%02dZ,%.6f,%.6f", gps_year,
-           gps_month, gps_day, gps_hour, gps_minute, gps_second, gps_latitude, gps_longitude);
-    sendDataPacket(gpsPacket);
   }
   else
   {
