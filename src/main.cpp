@@ -246,13 +246,19 @@ void handleGPSRequest()
     DBG("Accuracy:", gps_accuracy);
     DBG("Year:", gps_year, "\tMonth:", gps_month, "\tDay:", gps_day);
     DBG("Hour:", gps_hour, "\tMinute:", gps_minute, "\tSecond:", gps_second);
-    char gpsData[50];
-    snprintf(gpsData, sizeof(gpsData), "G%.6f,%.6f", gps_latitude, gps_longitude);
-    sendSerial(SerialTeensy, gpsData);
     char gpsPacket[128];
     snprintf(gpsPacket, sizeof(gpsPacket), "[500]G:%04d-%02d-%02dT%02d:%02d:%02dZ,%.6f,%.6f", gps_year,
            gps_month, gps_day, gps_hour, gps_minute, gps_second, gps_latitude, gps_longitude);
-    sendDataPacket(gpsPacket);
+
+    if (!sendDataPacket(gpsPacket)) {
+      DBG("Failed to send GPS data packet");
+      sendSerial(SerialTeensy, "G0");
+      return;
+    }
+    
+    char gpsData[50];
+    snprintf(gpsData, sizeof(gpsData), "G%.6f,%.6f", gps_latitude, gps_longitude);
+    sendSerial(SerialTeensy, gpsData);
   }
   else
   {
