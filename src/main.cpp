@@ -185,28 +185,31 @@ void handleCommandCheck() {
   }
 }
 
-void handleDataPacket() {
+bool sendDataPacket(const char* sendData) {
   const char contentType[] = "text/plain";
   int err = 0;
   http.connectionKeepAlive(); // Keep connection alive
-  err = http.post(POST_PATH, contentType, receivedChars);
+  err = http.post(POST_PATH, contentType, sendData);
   DBG("HTTP POST err: ", err);
   if (err) {
     DBG("HTTP POST failed");
     http.endRequest(); // End the request
     http.stop();
     delay(500); // wait a bit before retrying
-    sendSerial(SerialTeensy, "D0");
-    return;
+    return false;
   }
   int statusCode = http.responseStatusCode();
   String payload = http.responseBody();
   http.endRequest(); // End the request
-  //http.stop();
   DBG("HTTP POST status:", statusCode);
   DBG("HTTP POST response:", payload);
-  //delay(200); // wait a bit before sending confirmation
-  if (statusCode == 200) {
+  if (statusCode == 200) return true;
+  return false;
+}
+
+void handleDataPacket() {
+  bool sendOK = sendDataPacket(receivedChars);
+  if (sendOK) {
     DBG("Data sent successfully");
     sendSerial(SerialTeensy, "Da");
   } else {
@@ -246,6 +249,10 @@ void handleGPSRequest()
     char gpsData[50];
     snprintf(gpsData, sizeof(gpsData), "G%.6f,%.6f", gps_latitude, gps_longitude);
     sendSerial(SerialTeensy, gpsData);
+    char gpsPacket[128];
+    snprintf(gpsPacket, sizeof(gpsPacket), "[500]G:%04d-%02d-%02dT%02d:%02d:%02dZ,%.6f,%.6f", gps_year,
+           gps_month, gps_day, gps_hour, gps_minute, gps_second, gps_latitude, gps_longitude);
+    sendDataPacket(gpsPacket);
   }
   else
   {
